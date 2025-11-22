@@ -4,7 +4,7 @@ import dotenv from 'dotenv';
 import swaggerUi from 'swagger-ui-express';
 import { swaggerSpec } from './config/swagger.js';
 import authRoutes from './routes/authRoutes.js';
-
+import wargaRoutes from './routes/wargaRoutes.js';
 
 
 dotenv.config();
@@ -38,6 +38,8 @@ app.get('/api/health', (req, res) => {
 // Auth routes
 app.use('/api/auth', authRoutes);
 
+// Warga routes
+app.use('/api/warga', wargaRoutes);
 
 // Start server
 app.listen(PORT, () => {
