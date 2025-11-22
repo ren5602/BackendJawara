@@ -36,6 +36,17 @@ const options = {
             role: { type: 'string', enum: ['adminSistem', 'ketuaRT', 'ketuaRW', 'bendahara', 'sekretaris', 'warga'] },
           },
         },
+        Warga: {
+          type: 'object',
+          properties: {
+            nik: { type: 'string', pattern: '^\\d{16}$' },
+            namaWarga: { type: 'string' },
+            jenisKelamin: { type: 'string', enum: ['Laki-laki', 'Perempuan'] },
+            statusDomisili: { type: 'string' },
+            statusHidup: { type: 'string' },
+            keluargaId: { type: 'integer', nullable: true },
+          },
+        },
         Error: {
           type: 'object',
           properties: {
