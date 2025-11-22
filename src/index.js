@@ -5,7 +5,7 @@ import swaggerUi from 'swagger-ui-express';
 import { swaggerSpec } from './config/swagger.js';
 import authRoutes from './routes/authRoutes.js';
 import wargaRoutes from './routes/wargaRoutes.js';
-
+import verificationWargaRoutes from './routes/verificationWargaRoutes.js';
 
 dotenv.config();
 
@@ -40,6 +40,9 @@ app.use('/api/auth', authRoutes);
 
 // Warga routes
 app.use('/api/warga', wargaRoutes);
+
+// Verification Warga routes
+app.use('/api/verification-warga', verificationWargaRoutes);
 
 // Start server
 app.listen(PORT, () => {
