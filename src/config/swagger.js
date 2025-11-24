@@ -47,6 +47,26 @@ const options = {
             keluargaId: { type: 'integer', nullable: true },
           },
         },
+        Keluarga: {
+          type: 'object',
+          properties: {
+            id: { type: 'integer' },
+            namaKeluarga: { type: 'string' },
+            jumlahAnggota: { type: 'integer' },
+            rumahId: { type: 'integer', nullable: true },
+            kepala_Keluarga_Id: { type: 'string', nullable: true },
+          },
+        },
+        Rumah: {
+          type: 'object',
+          properties: {
+            id: { type: 'integer' },
+            statusKepemilikan: { type: 'string', enum: ['tetap', 'kontrak', 'pindah'] },
+            alamat: { type: 'string' },
+            jumlahPenghuni: { type: 'integer' },
+            keluargaId: { type: 'integer', nullable: true },
+          },
+        },
         Error: {
           type: 'object',
           properties: {
