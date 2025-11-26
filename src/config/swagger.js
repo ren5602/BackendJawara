@@ -67,6 +67,16 @@ const options = {
             keluargaId: { type: 'integer', nullable: true },
           },
         },
+        MarketPlace: {
+          type: 'object',
+          properties: {
+            id: { type: 'integer' },
+            namaProduk: { type: 'string' },
+            harga: { type: 'number' },
+            deskripsi: { type: 'string' },
+            gambar: { type: 'string', format: 'uri' },
+          },
+        },
         Error: {
           type: 'object',
           properties: {
