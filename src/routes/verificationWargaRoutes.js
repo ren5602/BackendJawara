@@ -68,6 +68,29 @@ router.get('/my-requests', authMiddleware, VerificationWargaController.getMyRequ
 
 /**
  * @swagger
+ * /api/verification-warga/{id}:
+ *   get:
+ *     summary: Get verification request by ID (authenticated users only)
+ *     tags: [Verification Warga]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Verification request ID
+ *     responses:
+ *       200:
+ *         description: Verification request retrieved successfully
+ *       404:
+ *         description: Verification request not found
+ */
+router.get('/:id', authMiddleware, VerificationWargaController.getById);
+
+/**
+ * @swagger
  * /api/verification-warga/all:
  *   get:
  *     summary: Get all verification requests (admin only)
@@ -102,7 +125,12 @@ router.get('/pending', authMiddleware, roleMiddleware(['adminSistem', 'ketuaRT',
  * @swagger
  * /api/verification-warga/approve/{id}:
  *   put:
- *     summary: Approve verification request (admin only)
+ *     summary: Approve verification request and create/update warga data (admin only)
+ *     description: |
+ *       Approve verification request. System will automatically:
+ *       - **New Registration** (warga_id = null): Create new warga profile with data from verification
+ *       - **Assignment Request** (isAssignmentRequest = true): Assign userId to existing warga
+ *       - **Update Existing** (warga_id != null): Update warga nama and other fields from extra_data
  *     tags: [Verification Warga]
  *     security:
  *       - bearerAuth: []
@@ -116,10 +144,63 @@ router.get('/pending', authMiddleware, roleMiddleware(['adminSistem', 'ketuaRT',
  *     responses:
  *       200:
  *         description: Verification approved and warga data updated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Verification approved and warga data updated successfully
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                     status:
+ *                       type: string
+ *                       example: accepted
+ *                     verified_by:
+ *                       type: integer
+ *                     verified_at:
+ *                       type: string
+ *                       format: date-time
+ *       201:
+ *         description: New warga profile created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: New warga profile created successfully
+ *                 data:
+ *                   type: object
+ *                 warga:
+ *                   type: object
+ *                   properties:
+ *                     nik:
+ *                       type: string
+ *                     namaWarga:
+ *                       type: string
+ *                     userId:
+ *                       type: integer
+ *                     status:
+ *                       type: string
+ *                       example: accepted
  *       403:
- *         description: Access denied
+ *         description: Access denied - admin only
  *       404:
  *         description: Verification request not found
+ *       409:
+ *         description: NIK conflict - already exists in system
  */
 router.put('/approve/:id', authMiddleware, roleMiddleware(['adminSistem', 'ketuaRT', 'ketuaRW']), VerificationWargaController.approve);
 

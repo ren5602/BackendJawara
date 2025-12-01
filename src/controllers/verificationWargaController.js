@@ -132,6 +132,34 @@ export const VerificationWargaController = {
     }
   },
 
+  // Get verification by ID (authenticated users only)
+  async getById(req, res) {
+    try {
+      const { id } = req.params;
+
+      const verification = await VerificationWargaModel.findById(id);
+      if (!verification) {
+        return res.status(404).json({
+          success: false,
+          message: 'Verification request not found'
+        });
+      }
+
+      res.status(200).json({
+        success: true,
+        message: 'Verification request retrieved successfully',
+        data: verification
+      });
+    } catch (error) {
+      console.error('Get verification by ID error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+        error: error.message
+      });
+    }
+  },
+
   // Get pending verification requests (admin only)
   async getPending(req, res) {
     try {
@@ -196,15 +224,9 @@ export const VerificationWargaController = {
       }
 
       // Check if this is a new profile registration or update
-      const wargaExists = await WargaModel.findByNIK(verification.warga_id);
+      // warga_id is NULL for new registrations
+      const isNewRegistration = !verification.warga_id || verification.warga_id === null;
       
-      if (!wargaExists) {
-        return res.status(404).json({
-          success: false,
-          message: 'Warga data not found'
-        });
-      }
-
       // Parse extra data to check if this is an assignment request
       let extraData = {};
       try {
@@ -215,10 +237,50 @@ export const VerificationWargaController = {
 
       const isAssignmentRequest = extraData.isAssignmentRequest === true;
 
+      if (isNewRegistration && !isAssignmentRequest) {
+        // NEW REGISTRATION: Create new warga profile
+        const wargaData = {
+          nik: verification.nik_baru,
+          namaWarga: verification.namaWarga_baru,
+          jenisKelamin: extraData.jenisKelamin,
+          statusDomisili: extraData.statusDomisili,
+          statusHidup: extraData.statusHidup,
+          keluargaId: extraData.keluargaId || null,
+          userId: verification.user_id,
+          status: 'accepted'
+        };
+
+        const newWarga = await WargaModel.create(wargaData);
+
+        // Update verification status
+        await VerificationWargaModel.updateStatus(id, 'accepted', adminId);
+
+        return res.status(201).json({
+          success: true,
+          message: 'New warga profile created successfully',
+          data: {
+            id: parseInt(id),
+            status: 'accepted',
+            verified_by: adminId,
+            verified_at: new Date().toISOString()
+          },
+          warga: newWarga
+        });
+      }
+
       if (isAssignmentRequest) {
-        // This is a NIK assignment request (warga exists with userId NULL)
+        // ASSIGNMENT: Assign userId to existing warga (userId was NULL)
+        const existingWarga = await WargaModel.findByNIK(verification.nik_baru);
+        
+        if (!existingWarga) {
+          return res.status(404).json({
+            success: false,
+            message: 'Warga data not found for assignment'
+          });
+        }
+
         // Assign userId to existing warga
-        await WargaModel.update(verification.warga_id, {
+        await WargaModel.update(verification.nik_baru, {
           userId: verification.user_id,
           status: 'accepted'
         });
@@ -238,7 +300,17 @@ export const VerificationWargaController = {
         });
       }
 
-      // Regular flow: Check if nik_baru is different and already exists
+      // UPDATE EXISTING WARGA: warga_id is not NULL
+      const existingWarga = await WargaModel.findByNIK(verification.warga_id);
+      
+      if (!existingWarga) {
+        return res.status(404).json({
+          success: false,
+          message: 'Warga data not found for update'
+        });
+      }
+
+      // Check if NIK is being changed and if new NIK already exists
       if (verification.warga_id !== verification.nik_baru) {
         const nikConflict = await WargaModel.findByNIK(verification.nik_baru);
         if (nikConflict && nikConflict.nik !== verification.warga_id) {
@@ -269,29 +341,35 @@ export const VerificationWargaController = {
             }
           });
         }
-      }
 
-      // Handle NIK change or nama change
-      if (verification.warga_id !== verification.nik_baru) {
         // NIK changed - delete old record and create new one
-        const oldWarga = await WargaModel.findByNIK(verification.warga_id);
         await WargaModel.delete(verification.warga_id);
         
         const newWargaData = {
-          ...oldWarga,
           nik: verification.nik_baru,
           namaWarga: verification.namaWarga_baru,
+          jenisKelamin: extraData.jenisKelamin || existingWarga.jenisKelamin,
+          statusDomisili: extraData.statusDomisili || existingWarga.statusDomisili,
+          statusHidup: extraData.statusHidup || existingWarga.statusHidup,
+          keluargaId: extraData.keluargaId !== undefined ? extraData.keluargaId : existingWarga.keluargaId,
+          userId: existingWarga.userId,
           status: 'accepted'
         };
-        delete newWargaData.created_at;
         
         await WargaModel.create(newWargaData);
       } else {
-        // NIK same, update nama and/or status
+        // NIK same, update nama and other fields from extra_data
         const updateData = {
           namaWarga: verification.namaWarga_baru,
           status: 'accepted'
         };
+        
+        // Update other fields if provided in extra_data
+        if (extraData.jenisKelamin) updateData.jenisKelamin = extraData.jenisKelamin;
+        if (extraData.statusDomisili) updateData.statusDomisili = extraData.statusDomisili;
+        if (extraData.statusHidup) updateData.statusHidup = extraData.statusHidup;
+        if (extraData.keluargaId !== undefined) updateData.keluargaId = extraData.keluargaId;
+        
         await WargaModel.update(verification.warga_id, updateData);
       }
 
@@ -300,14 +378,8 @@ export const VerificationWargaController = {
 
       res.status(200).json({
         success: true,
-        message: 'Verification approved. Warga data updated successfully.',
-        data: updatedVerification,
-        updated: {
-          old_nik: verification.warga_id,
-          new_nik: verification.nik_baru,
-          new_nama: verification.namaWarga_baru,
-          status: 'accepted'
-        }
+        message: 'Verification approved and warga data updated successfully',
+        data: updatedVerification
       });
     } catch (error) {
       console.error('Approve verification error:', error);

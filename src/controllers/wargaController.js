@@ -249,9 +249,6 @@ export const WargaController = {
         };
 
         await VerificationWargaModel.create(verificationData);
-        
-        // Update warga status to pending
-        await WargaModel.update(existingWarga.nik, { status: 'pending' });
 
         return res.status(200).json({
           success: true,
@@ -484,25 +481,12 @@ export const WargaController = {
         isAssignmentRequest = true;
       }
 
-      let newWarga = null;
-      if (!isAssignmentRequest) {
-        // Create new warga profile with status 'pending'
-        const wargaData = {
-          nik,
-          namaWarga,
-          jenisKelamin,
-          statusDomisili,
-          statusHidup,
-          keluargaId: keluargaId || null,
-          userId,
-          status: 'pending'
-        };
-        newWarga = await WargaModel.create(wargaData);
-      }
+      // DON'T create warga here - will be created during admin approval
+      // Only create verification record
 
       // Create verification record for tracking
       const verificationData = {
-        warga_id: nik,
+        warga_id: null, // NULL because warga not created yet
         user_id: userId,
         nik_baru: nik,
         namaWarga_baru: namaWarga,
@@ -513,7 +497,6 @@ export const WargaController = {
           statusDomisili,
           statusHidup,
           keluargaId: keluargaId || null,
-          isNewRegistration: !isAssignmentRequest,
           isAssignmentRequest: isAssignmentRequest
         })
       };
@@ -523,16 +506,17 @@ export const WargaController = {
       res.status(201).json({
         success: true,
         message: isAssignmentRequest 
-          ? 'Assignment request submitted. Admin will review and assign this NIK to your account.'
-          : 'Profile created with pending status. Admin will review your KTP.',
+          ? 'NIK assignment request submitted for verification. Admin will review your KTP.'
+          : 'Profile registration submitted for verification. Your warga profile will be created after admin approval.',
         data: {
-          warga: newWarga,
           verification_id: verification.id,
+          nik: verification.nik_baru,
+          namaWarga: verification.namaWarga_baru,
+          status: verification.status,
           foto_ktp: publicUrl,
-          isAssignmentRequest: isAssignmentRequest,
           note: isAssignmentRequest
-            ? 'This NIK exists but not assigned. Admin will verify and assign it to you.'
-            : 'Your profile status will be updated after admin approval'
+            ? 'Requesting to assign existing warga data to your account'
+            : 'Warga data will be created after admin approval'
         }
       });
     } catch (error) {
